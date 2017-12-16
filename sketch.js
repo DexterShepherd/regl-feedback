@@ -1,10 +1,17 @@
 const regl = require('regl')()
-const width = 1080
-const height = 720
+const width = 1080 / 2
+const height = 720 / 2
 
-const seed = (Array(width * height * 4).fill().map(() => {
-  return (Math.random() * 255)
-}))
+const resolution = [width, height]
+
+let seed = []
+for(let i = 0; i < width * height; i += 1) {
+  const value = Math.random() * 255
+  seed.push(value)
+  seed.push(value)
+  seed.push(value)
+  seed.push(255)
+}
 
 const [sharpBuffer, blurBuffer] = (Array(2).fill().map(() => {
   return regl.framebuffer({
@@ -22,7 +29,7 @@ const [sharpBuffer, blurBuffer] = (Array(2).fill().map(() => {
 const neighborhood = [
  [-1.0, -1.0], [0.0, -1.0], [1.0, -1.0],
  [-1.0, 0.0],  [0.0, 0.0],  [1.0, 0.0],
- [-1.0, 1.0],  [0.0, 1.0],  [1.0, 1.0],
+ [-1.0, 1.0],  [1.0, 1.0],  [1.0, 1.0],
 ]
 
 const blurKernal = [
@@ -32,9 +39,9 @@ const blurKernal = [
 ]
 
 const sharpKernal = [
-   0.0,  -1.0,   0.0,
-  -1.0,   5.0,  -1.0,
-   0.0,  -1.0,   0.0
+   0.0,  -1.5,   0.0,
+  -0.5,   5.0,  -1.5,
+   0.0,  -0.5,   0.0
 ]
 
 const sharpFrag = `
@@ -76,7 +83,7 @@ varying vec2 uv;
 void main() {
   vec2 st = uv;
   st -= vec2(0.5); //center origin
-  st *= mat2(0.99, 0.0, 0.0, 0.99); //zoom
+  st *= mat2(0.98, 0.0, 0.0, 0.99); //zoom
   st += vec2(0.5); //move origin back
 
   vec4 sum = vec4(0.0);
@@ -100,7 +107,7 @@ void main() {
 const calculateBlur = regl({
   frag: blurFrag,
   uniforms: {
-    resolution: () => [width, height],
+    resolution,
     kernal: blurKernal,
     neighborhoodX: neighborhood.map(i => i[0]),
     neighborhoodY: neighborhood.map(i => i[1]),
@@ -112,7 +119,7 @@ const calculateBlur = regl({
 const calculateSharp = regl({
   frag: sharpFrag,
   uniforms: {
-    resolution: () => [width, height],
+    resolution,
     kernal: sharpKernal,
     neighborhoodX: neighborhood.map(i => i[0]),
     neighborhoodY: neighborhood.map(i => i[1]),
@@ -146,7 +153,7 @@ const draw = regl({
     position: [-4, -4, 4, -4, 0, 4]
   },
   uniforms: {
-    resolution: () => [width, height],
+    resolution,
     feedback: sharpBuffer,
   },
   depth: { enable: false },
