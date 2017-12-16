@@ -1,17 +1,17 @@
 const regl = require('regl')()
-const width = 1024
-const height = 768
+const width = 300  
+const height = 300
 
 const seed = (Array(width * height * 4).fill().map(() => {
   return (Math.random() * 255)
 }))
 
-const fbos = (Array(2).fill().map(() => {
+const [sharpBuffer, blurBuffer] = (Array(2).fill().map(() => {
   return regl.framebuffer({
     color: regl.texture({
-      width, height,
+      width,
+      height,
       data: seed,
-      wrap: 'clamp'
     }),
     depthStencil: false
   })
@@ -19,20 +19,20 @@ const fbos = (Array(2).fill().map(() => {
 
 const neighborhood = [
  [-1, -1], [0, -1], [1, -1],
- [-1, 0],  [0, 0],  [1, 3],
+ [-1, 0],  [0, 0],  [1, 0],
  [-1, 1],  [0, 1],  [1, 1],
 ]
 
-const blurWeights = [
+const blurKernal = [
   1.0, 2.0, 1.0,
   2.0, 4.0, 2.0,
   1.0, 2.0, 1.0
 ]
 
-const sharpWeights = [
-   0.0,  -0.5,   0.0,
-  -0.5,   3.0,  -0.5,
-   0.0,  -0.5,   0.0
+const sharpKernal = [
+   0.0,  -1.0,   0.0,
+  -1.0,   5.0,  -1.0,
+   0.0,  -1.0,   0.0
 ]
 
 const sharpFrag = `
@@ -41,26 +41,24 @@ precision mediump int;
 
 uniform sampler2D blurTex;
 uniform vec2 resolution;
-uniform mat3 weights, neighborhoodX, neighborhoodY;
+uniform vec2 neighborhood[9];
+uniform mat3 kernal, neighborhoodX, neighborhoodY;
 varying vec2 uv;
 
-vec4 sum = vec4(0.0);
 void main() {
   vec4 sum = vec4(0.0);
   for( int x = 0; x < 3; x++ ) {
     for( int y = 0; y < 3; y++ ) {
       vec4 n = texture2D(
         blurTex,
-        uv + vec2(
-          neighborhoodX[x][y] / resolution.x,
-          neighborhoodY[x][y] / resolution.y
-        )); 
+        uv + (vec2(neighborhoodX[x][y], neighborhoodY[x][y]) / resolution)
+        ); 
 
-      sum += n * weights[x][y];
+      sum += n * kernal[x][y];
     }
   }
 
-  gl_FragColor = vec4(sum.rgb, 1.0);
+  gl_FragColor = vec4(clamp(sum.rgb, 0.0, 1.0), 1.0);
 }
 `
 
@@ -70,14 +68,13 @@ precision mediump int;
 
 uniform sampler2D sharpTex;
 uniform vec2 resolution;
-uniform mat3 weights, neighborhoodX, neighborhoodY;
+uniform mat3 kernal, neighborhoodX, neighborhoodY;
 varying vec2 uv;
 
-vec4 sum = vec4(0.0);
 void main() {
   vec2 st = uv;
   st -= vec2(0.5); //center origin
-  st *= mat2(0.99, 0.0, 0.0, 0.99); //zoom
+  st *= mat2(0.98, 0.0, 0.0, 0.98); //zoom
   st += vec2(0.5); //move origin back
 
   vec4 sum = vec4(0.0);
@@ -85,53 +82,52 @@ void main() {
     for( int y = 0; y < 3; y++ ) {
       vec4 n = texture2D(
         sharpTex,
-        st + vec2(
-          neighborhoodX[x][y] / resolution.x,
-          neighborhoodY[x][y] / resolution.y
-        )); 
+        st + (vec2(neighborhoodX[x][y], neighborhoodY[x][y]) / resolution)
+        );
 
-      sum += n * weights[x][y];
+      sum += n * kernal[x][y];
     }
   }
 
   sum /= 16.0;
 
-  gl_FragColor = vec4(sum.rgb, 1.0);
+  gl_FragColor = vec4(clamp(sum.rgb, 0.0, 1.0), 1.0);
 }
 `
 
-const frags = [ blurFrag, sharpFrag ]
-const weights = [ blurWeights, sharpWeights ]
+// const frags = [ blurFrag, sharpFrag ]
+// const weights = [ blurWeights, sharpWeights ]
 
 
 const calculateBlur = regl({
   frag: blurFrag,
   uniforms: {
     resolution: () => [width, height],
-    weights: blurWeights,
+    kernal: blurKernal,
     neighborhoodX: neighborhood.map(i => i[0]),
     neighborhoodY: neighborhood.map(i => i[1]),
-    sharpTex: fbos[1] 
+    sharpTex: sharpBuffer 
   },
-  framebuffer: fbos[0] 
+  framebuffer: blurBuffer
 })
 
 const calculateSharp = regl({
   frag: sharpFrag,
   uniforms: {
     resolution: () => [width, height],
-    weights: sharpWeights,
+    kernal: sharpKernal,
     neighborhoodX: neighborhood.map(i => i[0]),
     neighborhoodY: neighborhood.map(i => i[1]),
-    blurTex: fbos[0],
+    blurTex: blurBuffer,
   },
-  framebuffer: fbos[1] 
+  framebuffer: sharpBuffer 
 })
 
 const draw = regl({
   vert: `
   precision mediump float;
   attribute vec2 position;
+  uniform vec2 resolution;
   varying vec2 uv;
   void main() {
     uv = 0.5 * (position + 1.0);
@@ -152,7 +148,8 @@ const draw = regl({
     position: [-4, -4, 4, -4, 0, 4]
   },
   uniforms: {
-    feedback: fbos[0],
+    resolution: () => [width, height],
+    feedback: sharpBuffer,
   },
   depth: { enable: false },
   count: 3

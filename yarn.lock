@@ -2635,6 +2635,10 @@ pretty-ms@^2.1.0:
     parse-ms "^1.0.0"
     plur "^1.0.0"
 
+primitive-plane@^2.0.0:
+  version "2.0.0"
+  resolved "https://registry.yarnpkg.com/primitive-plane/-/primitive-plane-2.0.0.tgz#85dc2a858315d1735d5de87107c88a44089bc9dd"
+
 private@^0.1.6, private@^0.1.7:
   version "0.1.8"
   resolved "https://registry.yarnpkg.com/private/-/private-0.1.8.tgz#2381edb3689f7a53d653190060fcf822d2f368ff"
