@@ -57,8 +57,8 @@
 	var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; }();
 
 	var regl = __webpack_require__(2)();
-	var width = 300;
-	var height = 300;
+	var width = 1080;
+	var height = 720;
 
 	var seed = Array(width * height * 4).fill().map(function () {
 	  return Math.random() * 255;
@@ -69,7 +69,9 @@
 	    color: regl.texture({
 	      width: width,
 	      height: height,
-	      data: seed
+	      data: seed,
+	      mag: 'linear',
+	      min: 'linear'
 	    }),
 	    depthStencil: false
 	  });
@@ -78,19 +80,15 @@
 	    sharpBuffer = _Array$fill$map2[0],
 	    blurBuffer = _Array$fill$map2[1];
 
-	var neighborhood = [[-1, -1], [0, -1], [1, -1], [-1, 0], [0, 0], [1, 0], [-1, 1], [0, 1], [1, 1]];
+	var neighborhood = [[-1.0, -1.0], [0.0, -1.0], [1.0, -1.0], [-1.0, 0.0], [0.0, 0.0], [1.0, 0.0], [-1.0, 1.0], [0.0, 1.0], [1.0, 1.0]];
 
 	var blurKernal = [1.0, 2.0, 1.0, 2.0, 4.0, 2.0, 1.0, 2.0, 1.0];
 
 	var sharpKernal = [0.0, -1.0, 0.0, -1.0, 5.0, -1.0, 0.0, -1.0, 0.0];
 
-	var sharpFrag = '\nprecision mediump float;\nprecision mediump int;\n\nuniform sampler2D blurTex;\nuniform vec2 resolution;\nuniform vec2 neighborhood[9];\nuniform mat3 kernal, neighborhoodX, neighborhoodY;\nvarying vec2 uv;\n\nvoid main() {\n  vec4 sum = vec4(0.0);\n  for( int x = 0; x < 3; x++ ) {\n    for( int y = 0; y < 3; y++ ) {\n      vec4 n = texture2D(\n        blurTex,\n        uv + (vec2(neighborhoodX[x][y], neighborhoodY[x][y]) / resolution)\n        ); \n\n      sum += n * kernal[x][y];\n    }\n  }\n\n  gl_FragColor = vec4(clamp(sum.rgb, 0.0, 1.0), 1.0);\n}\n';
+	var sharpFrag = '\nprecision mediump float;\nprecision mediump int;\n\nuniform sampler2D blurTex;\nuniform vec2 resolution;\nuniform vec2 neighborhood[9];\nuniform mat3 kernal, neighborhoodX, neighborhoodY;\nvarying vec2 uv;\n\nvoid main() {\n  vec4 sum = vec4(0.0);\n  for( int x = 0; x < 3; x++ ) {\n    for( int y = 0; y < 3; y++ ) {\n      vec4 n = texture2D(\n        blurTex,\n        uv.xy + (vec2(neighborhoodX[x][y], neighborhoodY[x][y]) / resolution.xy)\n        ); \n\n      sum += n * kernal[x][y];\n    }\n  }\n\n  gl_FragColor = vec4(clamp(sum.rgb, 0.0, 1.0), 1.0);\n}\n';
 
-	var blurFrag = '\nprecision mediump float;\nprecision mediump int;\n\nuniform sampler2D sharpTex;\nuniform vec2 resolution;\nuniform mat3 kernal, neighborhoodX, neighborhoodY;\nvarying vec2 uv;\n\nvoid main() {\n  vec2 st = uv;\n  st -= vec2(0.5); //center origin\n  st *= mat2(0.98, 0.0, 0.0, 0.98); //zoom\n  st += vec2(0.5); //move origin back\n\n  vec4 sum = vec4(0.0);\n  for( int x = 0; x < 3; x++ ) {\n    for( int y = 0; y < 3; y++ ) {\n      vec4 n = texture2D(\n        sharpTex,\n        st + (vec2(neighborhoodX[x][y], neighborhoodY[x][y]) / resolution)\n        );\n\n      sum += n * kernal[x][y];\n    }\n  }\n\n  sum /= 16.0;\n\n  gl_FragColor = vec4(clamp(sum.rgb, 0.0, 1.0), 1.0);\n}\n';
-
-	// const frags = [ blurFrag, sharpFrag ]
-	// const weights = [ blurWeights, sharpWeights ]
-
+	var blurFrag = '\nprecision mediump float;\nprecision mediump int;\n\nuniform sampler2D sharpTex;\nuniform vec2 resolution;\nuniform mat3 kernal, neighborhoodX, neighborhoodY;\nvarying vec2 uv;\n\nvoid main() {\n  vec2 st = uv;\n  st -= vec2(0.5); //center origin\n  st *= mat2(0.99, 0.0, 0.0, 0.99); //zoom\n  st += vec2(0.5); //move origin back\n\n  vec4 sum = vec4(0.0);\n  for( int x = 0; x < 3; x++ ) {\n    for( int y = 0; y < 3; y++ ) {\n      vec4 n = texture2D(\n        sharpTex,\n        st.xy + (vec2(neighborhoodX[x][y], neighborhoodY[x][y]) / resolution.xy)\n        );\n\n      sum += n * kernal[x][y];\n    }\n  }\n\n  sum /= 16.0;\n\n  gl_FragColor = vec4(clamp(sum.rgb, 0.0, 1.0), 1.0);\n}\n';
 
 	var calculateBlur = regl({
 	  frag: blurFrag,
@@ -146,8 +144,8 @@
 
 	regl.frame(function () {
 	  draw(function () {
-	    calculateBlur();
 	    calculateSharp();
+	    calculateBlur();
 	    regl.draw();
 	  });
 	});

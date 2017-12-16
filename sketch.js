@@ -76,7 +76,7 @@ varying vec2 uv;
 void main() {
   vec2 st = uv;
   st -= vec2(0.5); //center origin
-  st *= mat2(0.98, 0.0, 0.0, 0.98); //zoom
+  st *= mat2(0.99, 0.0, 0.0, 0.99); //zoom
   st += vec2(0.5); //move origin back
 
   vec4 sum = vec4(0.0);
