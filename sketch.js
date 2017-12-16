@@ -1,6 +1,6 @@
 const regl = require('regl')()
-const width = 300  
-const height = 300
+const width = 1080
+const height = 720
 
 const seed = (Array(width * height * 4).fill().map(() => {
   return (Math.random() * 255)
@@ -12,15 +12,17 @@ const [sharpBuffer, blurBuffer] = (Array(2).fill().map(() => {
       width,
       height,
       data: seed,
+      mag: 'linear',
+      min: 'linear'
     }),
     depthStencil: false
   })
 }))
 
 const neighborhood = [
- [-1, -1], [0, -1], [1, -1],
- [-1, 0],  [0, 0],  [1, 0],
- [-1, 1],  [0, 1],  [1, 1],
+ [-1.0, -1.0], [0.0, -1.0], [1.0, -1.0],
+ [-1.0, 0.0],  [0.0, 0.0],  [1.0, 0.0],
+ [-1.0, 1.0],  [0.0, 1.0],  [1.0, 1.0],
 ]
 
 const blurKernal = [
@@ -51,7 +53,7 @@ void main() {
     for( int y = 0; y < 3; y++ ) {
       vec4 n = texture2D(
         blurTex,
-        uv + (vec2(neighborhoodX[x][y], neighborhoodY[x][y]) / resolution)
+        uv.xy + (vec2(neighborhoodX[x][y], neighborhoodY[x][y]) / resolution.xy)
         ); 
 
       sum += n * kernal[x][y];
@@ -82,7 +84,7 @@ void main() {
     for( int y = 0; y < 3; y++ ) {
       vec4 n = texture2D(
         sharpTex,
-        st + (vec2(neighborhoodX[x][y], neighborhoodY[x][y]) / resolution)
+        st.xy + (vec2(neighborhoodX[x][y], neighborhoodY[x][y]) / resolution.xy)
         );
 
       sum += n * kernal[x][y];
@@ -94,10 +96,6 @@ void main() {
   gl_FragColor = vec4(clamp(sum.rgb, 0.0, 1.0), 1.0);
 }
 `
-
-// const frags = [ blurFrag, sharpFrag ]
-// const weights = [ blurWeights, sharpWeights ]
-
 
 const calculateBlur = regl({
   frag: blurFrag,
@@ -157,8 +155,8 @@ const draw = regl({
 
 regl.frame(() => {
   draw(() => {
-    calculateBlur()
     calculateSharp()
+    calculateBlur()
     regl.draw()
   })
 }) 
